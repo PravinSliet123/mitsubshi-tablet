@@ -1,11 +1,11 @@
 'use client';
 
-import { useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
 export default function BluetoothWeightReader() {
-  const [weight, setWeight] = useState<number | null>(null);
+  const [weight, setWeight] = useState<number | any>(null);
   const [status, setStatus] = useState("Disconnected");
-
+  const [weightValue, setWeightValue] = useState()
   const connectToScale = async () => {
     try {
       setStatus("Requesting device...");
@@ -41,54 +41,8 @@ export default function BluetoothWeightReader() {
       setStatus("Error: " + (error as Error).message);
     }
   };
-  const connectToScale2 = async () => {
-    try {
-      setStatus("Requesting device...");
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: ['0000181d-0000-1000-8000-00805f9b34fb'] }], // Weight Scale Service
-        optionalServices: ['0000181d-0000-1000-8000-00805f9b34fb']
-      });
-  
-      setStatus("Connecting...");
-      const server = await device.gatt!.connect();
-      
-      // Correct Service UUID for Weight Scale
-      const service = await server.getPrimaryService('0000181d-0000-1000-8000-00805f9b34fb');
-      
-      // Correct Characteristic UUID for Weight Measurement
-      const characteristic = await service.getCharacteristic('00002a9d-0000-1000-8000-00805f9b34fb');
-  
-      characteristic.addEventListener('characteristicvaluechanged', (event) => {
-        const value = (event.target as BluetoothRemoteGATTCharacteristic).value!;
-        const flags = value.getUint8(0);
-        const rawWeight = value.getUint16(1, true); // Little-endian
-        const weightKg = rawWeight / 200;
-        setWeight(weightKg);
-        setStatus("Weight received!");
-      });
-  
-      await characteristic.startNotifications();
-      setStatus("Connected. Waiting for weight...");
-    } catch (error) {
-      console.error("Bluetooth error:", error);
-      setStatus("Error: " + (error as Error).message);
-    }
-  };
-  
 
   const custome = async () => {
-
-    // Filter on devices with the Arduino Uno USB Vendor/Product IDs.
-    // const filters = [
-    //   { usbVendorId: 0x2341, usbProductId: 0x0043 },
-    //   { usbVendorId: 0x2341, usbProductId: 0x0001 }
-    // ];
-
-    // // Prompt user to select an Arduino Uno device.
-    // const port = await navigator.serial.requestPort({ filters });
-
-    // const { usbProductId, usbVendorId } = port.getInfo();
-    // Prompt user to select any serial port.
     //@ts-ignore
     const port = await navigator.serial.requestPort();
 
@@ -109,8 +63,24 @@ export default function BluetoothWeightReader() {
 
       // value is a Uint8Array.
       console.log(value);
+      setWeightValue(value)
     }
   }
+
+  useEffect(() => {
+    if (weightValue) {
+      const str = Buffer.from(weightValue).toString('utf8').trim();
+      if (str.endsWith('S')) {
+        const value = str.slice(0, -1);
+        const weight = parseFloat(value);
+        console.log(`Weight: ${weight} kg`);
+        // TODO: Send to frontend / DB
+        setWeight(weight)
+      } else {
+        console.log('Received partial/invalid:', str);
+      }
+    }
+  }, [weightValue])
 
 
 
@@ -124,11 +94,10 @@ export default function BluetoothWeightReader() {
         Connect to BLE Scale
       </button>
       <p className="mt-2 text-gray-700">Status: {status}</p>
+      <button className='bg-blue-600 text-white px-4 py-2 rounded' onClick={custome}>PORT TEST</button>
       {weight !== null && (
         <p className="mt-4 text-2xl font-bold">Weight: {weight.toFixed(2)} kg</p>
       )}
-
-      <button className='bg-blue-600 text-white px-4 py-2 rounded' onClick={custome}>PORT TEST</button>
     </div>
   );
 }
