@@ -1,35 +1,37 @@
-// pages/index.tsx
+// components/PrintLabelButton.js
 "use client"
 import { useState } from "react";
 
-export default function TestPrint() {
-  const [status, setStatus] = useState("");
+export default function PrintLabelButton({ labelData }: { labelData: any }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<any>(null);
 
   const handlePrint = async () => {
-    const label = `
-^XA
-^FO50,50^A0N,40,40^FDHello from Next.js^FS
-^FO50,100^BY2
-^BCN,100,Y,N,N
-^FD1234567890^FS
-^XZ
-    `;
-
-    const res = await fetch("/api/print", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label }),
-    });
-
-    const data = await res.json();
-    setStatus(data.message || data.error);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(labelData),
+      });
+      if (!response.ok) {
+        throw new Error("Print failed");
+      }
+      alert("Label sent to printer!");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>SATO USB Label Print (Next.js)</h1>
-      <button onClick={handlePrint}>Print Label</button>
-      <p>Status: {status}</p>
+    <div>
+      <button onClick={handlePrint} disabled={loading}>
+        {loading ? "Printing..." : "Print Label"}
+      </button>
+      {error && <p style={{ color: "red" }}>{error}</p>}
     </div>
   );
 }

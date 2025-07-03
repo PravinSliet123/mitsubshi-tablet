@@ -1,31 +1,50 @@
-// pages/api/print.ts
+// pages/api/print-label.js
+import {createLabelPDF} from "../../lib/pdfGenerator"
+import net from 'net';
+import fs from 'fs';
+import { NextRequest, NextResponse } from 'next/server';
+const labelData = {
+  原料名: '在庫名1',
+  原料S_N: '14LUNDC1B35BB62020250630224430-11',
+  ベンダーLOT: '123',
+  内容量: '1',
+  使用期限: '2025/07/02',
+  入荷日: '2025/07/01',
+  qrData: '14LUNDC1B35BB62020250630224430-11' // or any string to encode in QR
+};
 
-import type { NextApiRequest, NextApiResponse } from 'next'
 
-const printerLib = require('printer');
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).end("Method Not Allowed");
-
-  const { label } = req.body;
-
-  if (!label) {
-    return res.status(400).json({ error: "Label data is required" });
+export default async function handler(req:NextRequest, res:NextResponse) {
+  if (req.method !== 'POST') {
+    //@ts-ignore
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    printerLib.printDirect({
-      data: label,
-      printer: printerLib.getDefaultPrinterName(),
-      type: 'RAW',
-      success: (jobId: any) => {
-        return res.status(200).json({ message: `Print job sent: ${jobId}` });
-      },
-      error: (err: any) => {
-        return res.status(500).json({ error: `Print error: ${err}` });
-      }
+    // const labelData = req.body;
+    // Generate PDF file (implement createLabelPDF to return a file path)
+    const pdfPath = await createLabelPDF(labelData);
+
+    // Send PDF to SATO printer
+    const printerIP = process.env.SATO_PRINTER_IP||"192.168.31.116"; // Set in your environment
+    const client = new net.Socket();
+    client.connect(9100, printerIP, () => {
+      const pdfStream = fs.createReadStream(pdfPath);
+      pdfStream.pipe(client);
+      pdfStream.on('end', () => {
+        client.end();
+        fs.unlinkSync(pdfPath); // Clean up temp file
+        //@ts-ignore
+        res.status(200).json({ message: 'Label sent to printer' });
+      });
     });
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    client.on('error', (err) => {
+      //@ts-ignore
+      res.status(500).json({ error: 'Printer connection failed', details: err.message });
+    });
+  } catch (err) {
+    //@ts-ignore
+    res.status(500).json({ error: 'Print job failed', details: err.message });
   }
 }
