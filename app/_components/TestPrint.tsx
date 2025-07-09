@@ -28,7 +28,7 @@ export default function PrintLabelButton({ labelData }: { labelData: any }) {
 
   return (
     <div>
-      <button onClick={handlePrint} disabled={loading}>
+      <button className=" bg-amber-300 px-5 py-2 mt-10 ml-10 cursor-pointer rounded-full " onClick={handlePrint} disabled={loading}>
         {loading ? "Printing..." : "Print Label"}
       </button>
       {error && <p style={{ color: "red" }}>{error}</p>}
