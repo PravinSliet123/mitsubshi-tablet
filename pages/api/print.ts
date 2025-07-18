@@ -27,7 +27,7 @@ export default async function handler(req: NextRequest, res: NextResponse) {
     // Send PDF to SATO printer
     const printerIP = process.env.SATO_PRINTER_IP || "172.20.3.61"; // Set in your environment
     const client = new net.Socket();
-    client.connect(1024, printerIP, () => {
+    client.connect(1025, printerIP, () => {
       const pdfStream = fs.createReadStream(pdfPath);
       pdfStream.pipe(client);
       pdfStream.on("end", () => {
