@@ -1,49 +1,75 @@
-// pages/api/print-label.js
-import { createLabelPDF } from "../../lib/pdfGenerator";
+import type { NextApiRequest, NextApiResponse } from "next";
 import net from "net";
-import fs from "fs";
-import { NextRequest, NextResponse } from "next/server";
-const labelData = {
-  原料名: "在庫名1",
-  原料S_N: "14LUNDC1B35BB62020250630224430-11",
-  ベンダーLOT: "123",
-  内容量: "1",
-  使用期限: "2025/07/02",
-  入荷日: "2025/07/01",
-  qrData: "14LUNDC1B35BB62020250630224430-11", // or any string to encode in QR
+
+const PRINTER_IP = "172.20.3.61"; // ✅ Replace with your printer's IP
+const PRINTER_PORT = 9100;
+
+// Convert placeholders to control characters
+const replaceControlChars = (data: string) => {
+  return data
+    .replace(/<ESC>/g, "\x1B")
+    .replace(/<STX>/g, "\x02")
+    .replace(/<ETX>/g, "\x03");
 };
 
-export default async function handler(req: NextRequest, res: NextResponse) {
+// Send SBPL data over TCP socket to SATO printer
+const sendToSatoPrinter = (
+  printerIp: string,
+  port: number,
+  rawData: string
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const client = new net.Socket();
+
+    client.connect(port, printerIp, () => {
+      client.write(rawData);
+      client.end();
+    });
+
+    client.on("error", (err) => {
+      reject(err);
+    });
+
+    client.on("close", () => {
+      resolve("Print job sent and connection closed.");
+    });
+  });
+};
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== "POST") {
-    //@ts-ignore
-    return res.status(405).json({ error: "Method not allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method not allowed" });
   }
 
   try {
-    // const labelData = req.body;
-    // Generate PDF file (implement createLabelPDF to return a file path)
-    const pdfPath = await createLabelPDF(labelData);
+    const { sbpl } = req.body;
 
-    // Send PDF to SATO printer
-    const printerIP = process.env.SATO_PRINTER_IP || "172.20.3.61"; // Set in your environment
-    const client = new net.Socket();
-    client.connect(1025, printerIP, () => {
-      const pdfStream = fs.createReadStream(pdfPath);
-      pdfStream.pipe(client);
-      pdfStream.on("end", () => {
-        client.end();
-        fs.unlinkSync(pdfPath); // Clean up temp file
-        //@ts-ignore
-        res.status(200).json({ message: "Label sent to printer" });
-      });
-    });
-    client.on("error", (err) => {
-      //@ts-ignore
-      res.status(500)
-        .json({ error: "Printer connection failed", details: err.message });
-    });
-  } catch (err) {
-    //@ts-ignore
-    res.status(500).json({ error: "Print job failed", details: err.message });
+    const labelCommand = sbpl
+      ? replaceControlChars(sbpl)
+      : replaceControlChars(`
+<STX><ESC>A
+<ESC>V0100
+<ESC>H0100
+<ESC>L0202
+<ESC>XB
+<ESC>D0301001
+<ESC>1S1234567890
+<ESC>Q1
+<ESC>Z
+`);
+
+    const result = await sendToSatoPrinter(
+      PRINTER_IP,
+      PRINTER_PORT,
+      labelCommand
+    );
+    return res.status(200).json({ success: true, message: result });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message,error: err });
   }
 }
