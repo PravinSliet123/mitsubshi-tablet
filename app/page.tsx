@@ -2,6 +2,7 @@ import React from 'react'
 import BluetoothComponent from './_components/BluetoothComponent'
 import WeightDisplay from './_components/WeightDisplay'
 import TestPrint from './_components/TestPrint'
+import { PrinterComponent } from './_components/Printer';
 const labelData = {
   原料名: '在庫名1',
   原料S_N: '14LUNDC1B35BB62020250630224430-11',
@@ -16,7 +17,8 @@ function Home() {
     <div>
       {/* <BluetoothComponent/> */}
       {/* <WeightDisplay/> */}
-      <TestPrint labelData={labelData}/>
+      {/* <TestPrint labelData={labelData}/> */}
+      <PrinterComponent/>
     </div>
   )
 }
