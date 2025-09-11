@@ -17,8 +17,8 @@ function Home() {
     <div>
       {/* <BluetoothComponent/> */}
       {/* <WeightDisplay/> */}
-      {/* <TestPrint labelData={labelData}/> */}
-      <PrinterComponent/>
+      <TestPrint labelData={labelData}/>
+      {/* <PrinterComponent/> */}
     </div>
   )
 }
