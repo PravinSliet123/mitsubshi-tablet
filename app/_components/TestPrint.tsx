@@ -63,11 +63,11 @@ export default function PrintLabelButton({ labelData }: { labelData: any }) {
     cmd += `${ESC}2D30,L,03,0,0`; // サイズ03（小さめ）
     cmd += `${ESC}DS1,0TEST`;
 
-    // 印刷実行
+    // 印刷実行 https://164372a32a8f.ngrok-free.app/print
     cmd += `${ESC}Q1`;
     cmd += `${ESC}Z`;
     try {
-      const response = await fetch("http://192.168.31.116:4000/print", {
+      const response = await fetch("https://c920a0f56f35.ngrok-free.app/print", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
