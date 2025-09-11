@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import net from "net";
+import { printLabel } from "./help";
 
 const PRINTER_IP = "172.20.3.61"; // ✅ Replace with your printer's IP
 const PRINTER_PORT = 9100;
@@ -49,27 +50,14 @@ export default async function handler(
   try {
     const { sbpl } = req.body;
 
-    const labelCommand = sbpl
-      ? replaceControlChars(sbpl)
-      : replaceControlChars(`
-<STX><ESC>A
-<ESC>V0100
-<ESC>H0100
-<ESC>L0202
-<ESC>XB
-<ESC>D0301001
-<ESC>1S1234567890
-<ESC>Q1
-<ESC>Z
-`);
-
-    const result = await sendToSatoPrinter(
-      PRINTER_IP,
-      PRINTER_PORT,
-      labelCommand
-    );
-    return res.status(200).json({ success: true, message: result });
+    await printLabel();
+    console.log("sbpl: ", sbpl);
+    return res
+      .status(200)
+      .json({ success: true, message: "Printed successfully" });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message,error: err });
+    return res
+      .status(500)
+      .json({ success: false, message: err.message, error: err });
   }
 }

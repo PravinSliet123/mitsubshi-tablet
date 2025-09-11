@@ -1,91 +1,89 @@
-// pages/api/print-label.js
-import { createLabelPDF } from "../../lib/pdfGenerator";
 import net from "net";
-import fs from "fs";
-import { NextRequest, NextResponse } from "next/server";
-const labelData = {
-  原料名: "在庫名1",
-  原料S_N: "14LUNDC1B35BB62020250630224430-11",
-  ベンダーLOT: "123",
-  内容量: "1",
-  使用期限: "2025/07/02",
-  入荷日: "2025/07/01",
-  qrData: "14LUNDC1B35BB62020250630224430-11", // or any string to encode in QR
-};
 
-export default async function handler(req: NextRequest, res: NextResponse) {
-  if (req.method !== "POST") {
-    //@ts-ignore
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+const HOST = "192.168.10.8";
+const PORT = 9100;
 
-  try {
-    // const labelData = req.body;
-    // Generate PDF file (implement createLabelPDF to return a file path)
-    const pdfPath = await createLabelPDF(labelData);
+const ESC = "\x1B";
 
-    // Send PDF to SATO printer
-    const printerIP = process.env.SATO_PRINTER_IP || "172.20.3.61"; // Set in your environment
-    const client = new net.Socket();
-    client.connect(1025, printerIP, () => {
-      const pdfStream = fs.createReadStream(pdfPath);
-      pdfStream.pipe(client);
-      pdfStream.on("end", () => {
-        client.end();
-        fs.unlinkSync(pdfPath); // Clean up temp file
-        //@ts-ignore
-        res.status(200).json({ message: "Label sent to printer" });
-      });
-    });
-    client.on("error", (err) => {
-      //@ts-ignore
-      res.status(500)
-        .json({ error: "Printer connection failed", details: err.message });
-    });
-  } catch (err) {
-    //@ts-ignore
-    res.status(500).json({ error: "Print job failed", details: err.message });
-  }
+export function printLabel() {
+  const socket = net.createConnection({ host: HOST, port: PORT }, () => {
+    console.log("=== P50*W80 Ingredient Label - Complete ===");
+    console.log("Optimized layout with no overlaps\n");
+
+    let cmd = "";
+
+    // ラベル開始
+    cmd += `${ESC}A`;
+
+    // === タイトル（上部中央） ===
+    cmd += `${ESC}V0040`;
+    cmd += `${ESC}H0300`;
+    cmd += `${ESC}P01`;
+    cmd += `${ESC}XMINGREDIENT LABEL`;
+
+    // === メイン情報（左側エリア：H250-550） ===
+    // 原料名
+    cmd += `${ESC}V0100`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}XMName: Stock1`;
+
+    // S/N（短縮表示）
+    cmd += `${ESC}V0150`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}XMSN: 14LUNDC1B35BB`;
+
+    // ベンダーLOT
+    cmd += `${ESC}V0200`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}XMLot: 12`;
+
+    // 内容量
+    cmd += `${ESC}V0250`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}XMQuantity: 455`;
+
+    // 使用期限
+    cmd += `${ESC}V0300`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}XMExpiry: 2025/09/10`;
+
+    // 入荷日
+    cmd += `${ESC}V0350`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}XMReceived: 2025/08/31`;
+
+    // フルS/N（最下部、小さく）
+    cmd += `${ESC}V0420`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}XSFull: 14LUNDC1B35BB620202508291550421`;
+
+    // === QRコード（右端エリア：H800以降） ===
+    cmd += `${ESC}V0250`; // 中央高さ
+    cmd += `${ESC}H0800`; // 極右（800ドット = 約67mm）
+    cmd += `${ESC}2D30,L,03,0,0`; // サイズ03（小さめ）
+    cmd += `${ESC}DS1,0TEST`;
+
+    // 印刷実行
+    cmd += `${ESC}Q1`;
+    cmd += `${ESC}Z`;
+
+    console.log("Final positions:");
+    console.log("- Left margin: 250 dots (21mm)");
+    console.log("- Text width: 250-550 (25mm)");
+    console.log("- QR position: H800 (67mm from left)");
+    console.log("- QR size: 03 (smaller)");
+    console.log("- Clear separation between text and QR");
+    console.log("\nSending...");
+
+    socket.write(Buffer.from(cmd, "ascii"));
+
+    setTimeout(() => {
+      socket.end();
+      console.log("Complete!");
+    }, 1000);
+  });
+
+  socket.on("error", (err) => console.error("Error:", err.message));
 }
 
-
-// export async function POST(req: NextRequest) {
-//   const { label } = await req.json();
-
-//   const printerIP = process.env.SATO_PRINTER_IP || "172.20.3.61";
-//   const printerPort = 9100;
-
-//   // Use fallback sample label if not passed
-//   const zplData = label || `^XA^FO50,50^ADN,36,20^FDHello from Next.js^FS^XZ`;
-
-//   return new Promise<Response>((resolve) => {
-//     const client = new net.Socket();
-
-//     client.connect(printerPort, printerIP, () => {
-//       client.write(zplData, () => {
-//         client.end();
-//         resolve(Response.json({ message: "✅ Label sent to printer." }));
-//       });
-//     });
-
-//     client.setTimeout(5000);
-
-//     client.on("timeout", () => {
-//       client.destroy();
-//       resolve(
-//         new Response(JSON.stringify({ error: "❌ Printer timeout" }), {
-//           status: 504,
-//         })
-//       );
-//     });
-
-//     client.on("error", (err) => {
-//       resolve(
-//         new Response(JSON.stringify({ error: "❌ Printer connection failed", details: err.message }), {
-//           status: 500,
-//         })
-//       );
-//     });
-//   });
-// }
 

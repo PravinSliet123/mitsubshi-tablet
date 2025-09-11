@@ -13,12 +13,16 @@ export default function PrintLabelButton({ labelData }: { labelData: any }) {
       const response = await fetch("/api/print", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(labelData),
+        body: JSON.stringify({
+          sbpl:labelData
+        }),
       });
+      const result:any = await response.json();
+      console.log('result: ', result);
       if (!response.ok) {
         throw new Error("Print failed");
       }
-      alert("Label sent to printer!");
+      alert(result?.message || "Print successful");
     } catch (err: any) {
       setError(err.message);
     } finally {
