@@ -1,79 +1,106 @@
 // components/PrintLabelButton.js
 "use client";
 import { useState } from "react";
+import iconv from "iconv-lite";
 
-export default function PrintLabelButton({ labelData }: { labelData: any }) {
+export default function PrintLabelButton(data: any) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<any>(null);
-
+  const labelData: any = {
+    title: data.title || "原料ラベル",
+    name: data.name || "在庫名1",
+    sn: data.sn || "14LUNDC1B35BB620202508291550421",
+    lot: data.lot || "12",
+    quantity: data.quantity || "455",
+    expiry: data.expiry || "2025/09/10",
+    received: data.received || "2025/08/31",
+    qrData: data.qrData || "テスト",
+  };
   const handlePrint = async () => {
     setLoading(true);
     setError(null);
     const ESC = "\x1B";
+ 
     let cmd = "";
-
+    
     // ラベル開始
     cmd += `${ESC}A`;
-
-    // === タイトル（上部中央） ===
+    
+    // 日本語設定（Shift-JIS）
+    cmd += `${ESC}#E3`;
+    
+    // === タイトル ===
     cmd += `${ESC}V0040`;
-    cmd += `${ESC}H0300`;
+    cmd += `${ESC}H0350`;
     cmd += `${ESC}P01`;
-    cmd += `${ESC}XMINGREDIENT LABEL`;
-
-    // === メイン情報（左側エリア：H250-550） ===
-    // 原料名
+    cmd += `${ESC}L0202`;  // 太字
+    cmd += `${ESC}K9B`;
+    cmd += iconv.encode(labelData.title, 'Shift_JIS').toString('binary');
+    
+    cmd += `${ESC}L0101`;  // 通常に戻す
+    
+    // === 原料名 ===
     cmd += `${ESC}V0100`;
     cmd += `${ESC}H0250`;
-    cmd += `${ESC}XMName: Stock1`;
-
-    // S/N（短縮表示）
+    cmd += `${ESC}K9B`;
+    cmd += iconv.encode(`原料名: ${labelData.name}`, 'Shift_JIS').toString('binary');
+    
+    // === 原料S/N ===
     cmd += `${ESC}V0150`;
     cmd += `${ESC}H0250`;
-    cmd += `${ESC}XMSN: 14LUNDC1B35BB`;
-
-    // ベンダーLOT
-    cmd += `${ESC}V0200`;
+    cmd += `${ESC}K9B`;
+    cmd += iconv.encode("原料S/N:", 'Shift_JIS').toString('binary');
+    
+    // S/N値（英数字は通常フォント）
+    cmd += `${ESC}V0190`;
     cmd += `${ESC}H0250`;
-    cmd += `${ESC}XMLot: 12`;
-
-    // 内容量
+    cmd += `${ESC}XS${labelData.sn}`;
+    
+    // === ベンダーLOT ===
+    cmd += `${ESC}V0240`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}K9B`;
+    cmd += iconv.encode(`ベンダーLOT: ${labelData.lot}`, 'Shift_JIS').toString('binary');
+    
+    // === 内容量 ===
+    cmd += `${ESC}V0290`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}K9B`;
+    cmd += iconv.encode(`内容量: ${labelData.quantity}`, 'Shift_JIS').toString('binary');
+    
+    // === 使用期限 ===
+    cmd += `${ESC}V0340`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}K9B`;
+    cmd += iconv.encode(`使用期限: ${labelData.expiry}`, 'Shift_JIS').toString('binary');
+    
+    // === 入荷日 ===
+    cmd += `${ESC}V0390`;
+    cmd += `${ESC}H0250`;
+    cmd += `${ESC}K9B`;
+    cmd += iconv.encode(`入荷日: ${labelData.received}`, 'Shift_JIS').toString('binary');
+    
+    // === QRコード（右端） ===
     cmd += `${ESC}V0250`;
-    cmd += `${ESC}H0250`;
-    cmd += `${ESC}XMQuantity: 455`;
-
-    // 使用期限
-    cmd += `${ESC}V0300`;
-    cmd += `${ESC}H0250`;
-    cmd += `${ESC}XMExpiry: 2025/09/10`;
-
-    // 入荷日
-    cmd += `${ESC}V0350`;
-    cmd += `${ESC}H0250`;
-    cmd += `${ESC}XMReceived: 2025/08/31`;
-
-    // フルS/N（最下部、小さく）
-    cmd += `${ESC}V0420`;
-    cmd += `${ESC}H0250`;
-    cmd += `${ESC}XSFull: 14LUNDC1B35BB620202508291550421`;
-
-    // === QRコード（右端エリア：H800以降） ===
-    cmd += `${ESC}V0250`; // 中央高さ
-    cmd += `${ESC}H0800`; // 極右（800ドット = 約67mm）
-    cmd += `${ESC}2D30,L,03,0,0`; // サイズ03（小さめ）
-    cmd += `${ESC}DS1,0TEST`;
-
-    // 印刷実行 https://164372a32a8f.ngrok-free.app/print
+    cmd += `${ESC}H0800`;
+    cmd += `${ESC}2D30,L,03,0,0`;
+    cmd += `${ESC}DS1,0`;
+    cmd += iconv.encode(labelData.qrData, 'Shift_JIS').toString('binary');
+    
+    // 印刷実行
     cmd += `${ESC}Q1`;
     cmd += `${ESC}Z`;
     try {
-      const response = await fetch("https://c920a0f56f35.ngrok-free.app/print", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sbpl: cmd,
-        }),
-      });
+      const response = await fetch(
+        "https://c920a0f56f35.ngrok-free.app/print",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sbpl: cmd,
+          }),
+        }
+      );
       const result: any = await response.json();
       console.log("result: ", result);
       if (!response.ok) {

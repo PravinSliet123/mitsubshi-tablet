@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "iconv-lite": "^0.7.0",
     "next": "15.3.3",
     "node-thermal-printer": "^4.5.0",
     "pdfkit": "^0.17.1",
