@@ -92,7 +92,7 @@ export default function PrintLabelButton(data: any) {
     cmd += `${ESC}Z`;
     try {
       const response = await fetch(
-        "https://c920a0f56f35.ngrok-free.app/print",
+        "https://549c8d5db4c2.ngrok-free.app/print",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
